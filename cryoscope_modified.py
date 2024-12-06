@@ -126,30 +126,6 @@ def _fit(
         phase,
     )
 
-def save_fit_data(results: CryoscopeResults, raw_detuning, phase, name: str, 
-                  savgol: bool, demod: bool, window_length: int, causal: bool):
-
-    os.makedirs(name, exist_ok=True)
-
-    metadata = {
-        "savgol": savgol,
-        "demodulation": demod,
-        "window_length": window_length,
-        "causal_filter": causal,
-    }
-
-    with open(os.path.join(name, "metadata.json"), "wb") as json_file:
-        json.dump(metadata, json_file, indent=4)
-
-    data = {
-        "results": results,
-        "raw_detuning": raw_detuning,
-        "phase": phase,
-    }
-
-    with open(os.path.join(name, "data.pkl"), "wb") as pkl_file:
-        pickle.dump(data, pkl_file)
-        
 
 def compute_window_length(data: CryoscopeData):
 
@@ -174,3 +150,40 @@ def compute_window_length(data: CryoscopeData):
         derivative_window_size += (derivative_window_size + 1) % 2
 
     return(derivative_window_size, sampling_rate)
+
+def save_fit_data(results: CryoscopeResults, raw_detuning, phase, name: str, 
+                  savgol: bool, demod: bool, window_length: int, causal: bool):
+
+    os.makedirs(name, exist_ok=True)
+
+    metadata = {
+        "savgol": savgol,
+        "demodulation": demod,
+        "window_length": window_length,
+        "causal_filter": causal,
+    }
+
+    with open(os.path.join(name, "metadata.json"), "wb") as json_file:
+        json.dump(metadata, json_file, indent=4)
+
+    data = {
+        "results": results,
+        "raw_detuning": raw_detuning,
+        "phase": phase,
+    }
+
+    with open(os.path.join(name, "data.pkl"), "wb") as pkl_file:
+        pickle.dump(data, pkl_file)
+
+def load_fit_data(name: str):
+    
+    if not os.path.exists(name):
+        raise FileNotFoundError(f"Directory '{name}' does not exist.")
+    
+    with open(os.path.join(name, "metadata.json"), "rb") as json_file:
+        metadata = json.load(json_file)
+    
+    with open(os.path.join(name, "data.pkl"), "wb") as pkl_file:
+        data = pickle.load(pkl_file)
+
+    return metadata, data
