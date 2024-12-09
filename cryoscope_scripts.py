@@ -3,27 +3,29 @@ import os
 import json
 import pickle
 
-from qibocal.protocols.two_qubit_interaction.cryoscope import CryoscopeData, CryoscopeResults 
+from qibocal.protocols.two_qubit_interaction.cryoscope import (
+    CryoscopeData,
+    CryoscopeResults,
+)
 from qibocal.protocols.ramsey.utils import fitting
 from scipy.signal import savgol_filter
 from causal_savgol import causal_savgol_filter
 
+
 def load_cryoscope_data(file_path: str, flux_pulse_amplitude: float) -> CryoscopeData:
 
-    cryoscope_data = CryoscopeData(flux_pulse_amplitude = flux_pulse_amplitude)
-    
+    cryoscope_data = CryoscopeData(flux_pulse_amplitude=flux_pulse_amplitude)
+
     data_npz = np.load(file_path)
     D1MX = np.rec.array(data_npz['["D1", "MX"]'])
     D1MY = np.rec.array(data_npz['["D1", "MY"]'])
-    
-    data_dict = {
-        ("D1", "MX") : D1MX,
-        ("D1", "MY") : D1MY
-    }
+
+    data_dict = {("D1", "MX"): D1MX, ("D1", "MY"): D1MY}
 
     cryoscope_data.data = data_dict
 
     return cryoscope_data
+
 
 def _fit(
     data: CryoscopeData, savgol: bool, demod: bool, window_length: int, causal: bool
@@ -82,14 +84,14 @@ def _fit(
                     deriv=1,
                     mode="nearest",
                 )
-            else: 
+            else:
                 phase = savgol_filter(
                     phase / (2 * np.pi),
                     window_length=derivative_window_size,
                     polyorder=2,
                     deriv=1,
                     mode="nearest",
-                )                
+                )
             raw_detuning = phase * sampling_rate
         else:
             phase = phase / (2 * np.pi)
@@ -149,10 +151,19 @@ def compute_window_length(data: CryoscopeData):
         derivative_window_size = max(3, int(derivative_window_length * sampling_rate))
         derivative_window_size += (derivative_window_size + 1) % 2
 
-    return(derivative_window_size, sampling_rate)
+    return (derivative_window_size, sampling_rate)
 
-def save_fit_data(results: CryoscopeResults, raw_detuning, phase, name: str, 
-                  savgol: bool, demod: bool, window_length: int, causal: bool):
+
+def save_fit_data(
+    results: CryoscopeResults,
+    raw_detuning,
+    phase,
+    name: str,
+    savgol: bool,
+    demod: bool,
+    window_length: int,
+    causal: bool,
+):
 
     os.makedirs(name, exist_ok=True)
 
@@ -175,15 +186,27 @@ def save_fit_data(results: CryoscopeResults, raw_detuning, phase, name: str,
     with open(os.path.join(name, "data.pkl"), "wb") as pkl_file:
         pickle.dump(data, pkl_file)
 
+
 def load_fit_data(name: str):
-    
+
     if not os.path.exists(name):
         raise FileNotFoundError(f"Directory '{name}' does not exist.")
-    
+
     with open(os.path.join(name, "metadata.json"), "rb") as json_file:
         metadata = json.load(json_file)
-    
+
     with open(os.path.join(name, "data.pkl"), "wb") as pkl_file:
         data = pickle.load(pkl_file)
 
     return metadata, data
+
+
+def build_phase(time, c, start, sigma):
+    phase = []
+    for t in time:
+
+        phi = c if t < start else 0.015 * (t - start) + c
+        phi += np.random.normal(loc=0, scale=sigma)
+        phase.append(phi)
+
+    return phase
