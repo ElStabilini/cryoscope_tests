@@ -10,6 +10,7 @@ from qibocal.protocols.two_qubit_interaction.cryoscope import (
 from qibocal.protocols.ramsey.utils import fitting
 from scipy.signal import savgol_filter
 from causal_savgol import causal_savgol_filter
+from dataclasses import dataclass
 
 
 def load_cryoscope_data(file_path: str, flux_pulse_amplitude: float) -> CryoscopeData:
@@ -210,3 +211,96 @@ def build_phase(time, c, start, sigma):
         phase.append(phi)
 
     return phase
+
+
+@dataclass
+class FitResults:
+    """Similar to CryoscopeResults but for fictious data (no QubitId ecc..)"""
+
+    detuning: list[float]
+    """Expected detuning."""
+    amplitude: list[float]
+    """Flux amplitude computed from detuning."""
+    step_response: list[float]
+    """Waveform normalized to 1."""
+
+
+def pseudo_fit(
+    phase_data,
+    flux_pulse_amplitude,
+    savgol: bool,
+    demod: bool,
+    window_length: int,
+    causal: bool,
+) -> FitResults:
+
+    sampling_rate = 1
+    # sampling rate, at least for quantum machines should be 1
+
+    # demodulation frequency found by fitting sinusoidal
+    # TODO: capire come fare la demodulazione su dati sintetici
+    """demod_freq = -fitted_parameters[qubit, "MY"][2] / 2 / np.pi * sampling_rate"""
+    # to be used in savgol_filter
+
+    derivative_window_length = window_length / sampling_rate
+    derivative_window_size = max(3, int(derivative_window_length * sampling_rate))
+    derivative_window_size += (derivative_window_size + 1) % 2
+    # find demodulatation frequency
+    """if demod:
+        demod_data = np.exp(2 * np.pi * 1j * x * demod_freq) * (norm_data)
+    else:
+        demod_data = norm_data
+    # compute phase
+    phase = np.unwrap(np.angle(demod_data))"""
+
+    phase = phase_data
+    # compute detuning
+    if savgol:
+        if causal:
+            phase = causal_savgol_filter(
+                phase / (2 * np.pi),
+                window_length=derivative_window_size,
+                polyorder=2,
+                deriv=1,
+                mode="nearest",
+            )
+        else:
+            phase = savgol_filter(
+                phase / (2 * np.pi),
+                window_length=derivative_window_size,
+                polyorder=2,
+                deriv=1,
+                mode="nearest",
+            )
+        raw_detuning = phase * sampling_rate
+    else:
+        phase = phase / (2 * np.pi)
+        raw_detuning = phase * sampling_rate
+
+    # real detuning (reintroducing demod_freq)
+    """if demod:
+        detuning[qubit] = (
+            raw_detuning - demod_freq + sampling_rate * nyquist_order
+        ).tolist()
+    else:"""
+
+    nyquist_order = 0
+    detuning = (raw_detuning + sampling_rate * nyquist_order).tolist()
+
+    # params from flux_amplitude_frequency_protocol
+    params = [1.9412681243469971, -0.012534948170662627, 0.0005454772278201887]
+    # invert frequency amplitude formula
+    p = np.poly1d(params)
+    amplitude = [max((p - freq).roots).real for freq in detuning]
+    # compute step response
+    step_response = (np.array(amplitude) / flux_pulse_amplitude).tolist()
+
+    return (
+        FitResults(
+            amplitude=amplitude,
+            detuning=detuning,
+            step_response=step_response,
+        ),
+        raw_detuning,
+        phase,
+    )
