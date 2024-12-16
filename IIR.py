@@ -22,10 +22,6 @@ def inverse_model_IIR(params, t, start, data):
     return data / (g * (1 + A * np.exp(-(t - start) / tau)))
 
 
-def params_IIR(params, t, start, data):
-    g, tau, A = params
-
-
 def multi_exponential_IIR(params, t, start, data):
     g_1, tau_1, A_1, g_2, tau_2, A_2, g_3, tau_3, A_3 = params
     return data / (
