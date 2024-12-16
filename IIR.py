@@ -16,9 +16,14 @@ def filter(params, t, start):
     return g * (1 + A * np.exp(-(t - start) / tau))
 
 
+# forse meglio definirlo come classe con una serie di proprietà
 def inverse_model_IIR(params, t, start, data):
     g, tau, A = params
     return data / (g * (1 + A * np.exp(-(t - start) / tau)))
+
+
+def params_IIR(params, t, start, data):
+    g, tau, A = params
 
 
 def multi_exponential_IIR(params, t, start, data):
