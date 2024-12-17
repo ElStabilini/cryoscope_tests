@@ -73,6 +73,7 @@ def _fit(
 
         # compute phase
         phase = np.unwrap(np.angle(demod_data))
+        real_phase = phase / (2 * np.pi)
 
         # compute detuning
 
@@ -83,7 +84,7 @@ def _fit(
                     window_length=derivative_window_size,
                     polyorder=2,
                     deriv=1,
-                    mode="nearest",
+                    # mode="nearest",
                 )
             else:
                 phase = savgol_filter(
@@ -91,7 +92,7 @@ def _fit(
                     window_length=derivative_window_size,
                     polyorder=2,
                     deriv=1,
-                    mode="nearest",
+                    # mode="nearest",
                 )
             raw_detuning = phase * sampling_rate
         else:
@@ -126,7 +127,7 @@ def _fit(
             fitted_parameters=fitted_parameters,
         ),
         raw_detuning,
-        phase,
+        real_phase,
     )
 
 

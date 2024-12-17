@@ -72,3 +72,4 @@ def plot_reconstructed_data(
     plt.legend()
     plt.grid()
     plt.show()
+    return plt
