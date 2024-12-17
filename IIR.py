@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import least_squares
+from scipy.signal import lfilter, lfilter_zi
 
 
 def step(t: np.array, start):
@@ -42,7 +43,6 @@ def residuals_multi_exponential(params, t, start, data):
     return multi_exponential_IIR(params, t, start, data) - step(t, start)
 
 
-# add function that perform minimization and store data (both parameters and data with mask)
 def iter_filter_application(
     direct: bool, iterations, t, start, init_guess, step_response
 ):
@@ -62,7 +62,25 @@ def iter_filter_application(
     return responses, results
 
 
-# to be corrected for using g
+def IIR_filter(coefficients: list[float], signal: list[float], use_zi: bool):
+    a0, a1, b0, b1 = coefficients
+    a = np.array([a0, a1])
+    b = np.array([b0, b1])
+
+    if use_zi:
+        zi = lfilter_zi(b, a) * signal[0]
+        filtered_signal, _ = lfilter(b, a, signal, zi=zi)
+
+    else:
+        filtered_signal = lfilter(b, a, signal)
+
+    return filtered_signal
+
+
+def residuals_coefficients(coefficients, data, use_zi, t, start):
+    return IIR_filter(coefficients, data, use_zi) - step(t, start)
+
+
 def single_exp_params(params, sampling_rate):
     g, tau, A = params
     alpha = 1 - np.exp(-1 / (sampling_rate * tau * (1 + A)))
@@ -72,6 +90,12 @@ def single_exp_params(params, sampling_rate):
     a0 = 1
     a1 = -(1 - alpha)
 
-    a = np.array([a0, a1])
-    b = np.array([b0, b1])
+    a = np.array([a0, a1]) * g
+    b = np.array([b0, b1]) * g
     return a, b
+
+
+"""TODO:
+*  I do not need to fit g at each iteration, fitting once is enough (all codes need to be adjusted accordingly)
+* 
+"""
