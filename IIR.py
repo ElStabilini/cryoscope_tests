@@ -7,6 +7,7 @@ def step(t: np.array, start):
     return np.where(t < start, 0, 1)
 
 
+# direct exponential model
 def direct_model_IIR(params, t, start):
     g, tau, A = params
     return g * (1 + A * np.exp(-(t - start) / tau)) * step(t, start)
@@ -17,30 +18,18 @@ def filter(params, t, start):
     return g * (1 + A * np.exp(-(t - start) / tau))
 
 
+def residuals_direct_IIR(params, t, start, data):
+    return direct_model_IIR(params, t, start) - data
+
+
+# inverse exponential model
 def inverse_model_IIR(params, t, start, data):
     g, tau, A = params
     return data / (g * (1 + A * np.exp(-(t - start) / tau)))
 
 
-def multi_exponential_IIR(params, t, start, data):
-    g_1, tau_1, A_1, g_2, tau_2, A_2, g_3, tau_3, A_3 = params
-    return data / (
-        (g_1 * (1 + A_1 * np.exp(-(t - start) / tau_1)))
-        * (g_2 * (1 + A_2 * np.exp(-(t - start) / tau_2)))
-        * (g_3 * (1 + A_3 * np.exp(-(t - start) / tau_3)))
-    )
-
-
-def residuals_direct_IIR(params, t, start, data):
-    return direct_model_IIR(params, t, start) - data
-
-
 def residuals_inverse_IIR(params, t, start, data):
     return inverse_model_IIR(params, t, start, data) - step(t, start)
-
-
-def residuals_multi_exponential(params, t, start, data):
-    return multi_exponential_IIR(params, t, start, data) - step(t, start)
 
 
 def iter_filter_application(
@@ -62,6 +51,22 @@ def iter_filter_application(
     return responses, results
 
 
+# multi-exponential model
+def multi_exponential_IIR(params, t, start, data):
+    g_1, tau_1, A_1, g_2, tau_2, A_2, g_3, tau_3, A_3 = params
+    h_1 = g_1 * (1 + A_1 * np.exp(-(t - start) / tau_1))
+    h_2 = g_2 * (1 + A_2 * np.exp(-(t - start) / tau_2))
+    h_3 = g_3 * (1 + A_3 * np.exp(-(t - start) / tau_3))
+    combined_h = np.convolve(h_1, h_2, mode="same")
+    combined_h = np.convolve(combined_h, h_3, "same")
+    return data / combined_h
+
+
+def residuals_multi_exponential(params, t, start, data):
+    return multi_exponential_IIR(params, t, start, data) - step(t, start)
+
+
+# model for directly optimize IIR filter
 def IIR_filter(coefficients: list[float], signal: list[float], use_zi: bool):
     a0, a1, b0, b1 = coefficients
     a = np.array([a0, a1])
@@ -81,6 +86,7 @@ def residuals_coefficients(coefficients, data, use_zi, t, start):
     return IIR_filter(coefficients, data, use_zi) - step(t, start)
 
 
+# compute ai and bi coefficients from exponential parameter
 def single_exp_params(params, sampling_rate):
     g, tau, A = params
     alpha = 1 - np.exp(-1 / (sampling_rate * tau * (1 + A)))
